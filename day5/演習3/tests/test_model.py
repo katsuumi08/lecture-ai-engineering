@@ -171,3 +171,51 @@ def test_model_reproducibility(sample_data, preprocessor):
     assert np.array_equal(
         predictions1, predictions2
     ), "モデルの予測結果に再現性がありません"
+
+
+def test_accuracy_regression(train_model):
+    """保存済みモデルと比較して精度劣化がないかを検証"""
+    new_model, X_test, y_test = train_model
+
+    if not os.path.exists(MODEL_PATH):
+        pytest.skip("旧モデルが存在しないためスキップします")
+
+    with open(MODEL_PATH, "rb") as f:
+        old_model = pickle.load(f)
+
+    old_accuracy = accuracy_score(y_test, old_model.predict(X_test))
+    new_accuracy = accuracy_score(y_test, new_model.predict(X_test))
+
+    # 精度が1%以上劣化していたら警告
+    assert new_accuracy >= old_accuracy - 0.01, (
+        f"新モデルの精度が劣化しています: "
+        f"旧={old_accuracy:.4f}, 新={new_accuracy:.4f}"
+    )
+
+
+def test_prediction_confidence(train_model):
+    """推論確率が極端に偏っていないか（過信モデルの検出）"""
+    model, X_test, _ = train_model
+
+    if not hasattr(model.named_steps["classifier"], "predict_proba"):
+        pytest.skip("確率出力がサポートされていません")
+
+    probas = model.predict_proba(X_test)
+    max_confidences = probas.max(axis=1)
+
+    avg_conf = np.mean(max_confidences)
+    std_conf = np.std(max_confidences)
+
+    # 平均信頼度が0.95以上かつ分散が低すぎる場合、過信と判定
+    assert (
+        avg_conf < 0.95 or std_conf > 0.01
+    ), f"モデルが過度に確信的です: avg={avg_conf:.3f}, std={std_conf:.3f}"
+
+
+def test_model_file_size():
+    """モデルファイルのサイズが異常に大きくなっていないか"""
+    if not os.path.exists(MODEL_PATH):
+        pytest.skip("モデルファイルが存在しないためスキップします")
+
+    file_size_mb = os.path.getsize(MODEL_PATH) / (1024 * 1024)
+    assert file_size_mb < 50, f"モデルサイズが大きすぎます: {file_size_mb:.2f}MB"
