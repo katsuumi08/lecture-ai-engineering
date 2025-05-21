@@ -172,6 +172,7 @@ def test_model_reproducibility(sample_data, preprocessor):
         predictions1, predictions2
     ), "モデルの予測結果に再現性がありません"
 
+
 def test_accuracy_regression(train_model):
     """保存済みモデルと比較して精度劣化がないかを検証"""
     new_model, X_test, y_test = train_model
@@ -206,9 +207,9 @@ def test_prediction_confidence(train_model):
     std_conf = np.std(max_confidences)
 
     # 平均信頼度が0.95以上かつ分散が低すぎる場合、過信と判定
-    assert avg_conf < 0.95 or std_conf > 0.01, (
-        f"モデルが過度に確信的です: avg={avg_conf:.3f}, std={std_conf:.3f}"
-    )
+    assert (
+        avg_conf < 0.95 or std_conf > 0.01
+    ), f"モデルが過度に確信的です: avg={avg_conf:.3f}, std={std_conf:.3f}"
 
 
 def test_model_file_size():
